@@ -15,7 +15,8 @@ def process_image(input_path: str,
                   face_score_threshold: float = 0.5,
                   landmark_score_threshold: float = 0.3,
                   detector_name: str = 'yolov8n',
-                  device: str = 'cpu'):
+                  device: str = 'cpu',
+                  use_mmdet: bool = False):
     """
     画像のランドマークを検出して保存する
     
@@ -25,6 +26,7 @@ def process_image(input_path: str,
         landmark_score_threshold: ランドマークの閾値
         detector_name: 使用するモデル名
         device: 使用するデバイス
+        use_mmdet: オリジナルのMMDetectionベースのモデルを使用するか
     """
     input_path = pathlib.Path(input_path)
     
@@ -39,11 +41,14 @@ def process_image(input_path: str,
     print(f"出力: {output_path}")
     print(f"モデル: {detector_name}")
     print(f"デバイス: {device}")
+    print(f"MMDet使用: {use_mmdet}")
     
     # 検出器を作成
     detector = anime_face_detector.create_detector(
         face_detector_name=detector_name,
-        device=device
+        device=device,
+        use_mmdet=use_mmdet,
+        confidence_threshold=face_score_threshold
     )
     
     # 画像を読み込み
@@ -109,7 +114,7 @@ def main():
     parser.add_argument('--detector',
                        type=str,
                        default='yolov8n',
-                       choices=['yolov8n', 'yolov8s', 'yolov8m', 'yolov8l', 'yolov8x'],
+                       choices=['yolov8n', 'yolov8s', 'yolov8m', 'yolov8l', 'yolov8x', 'yolov3', 'faster-rcnn'],
                        help='使用するYOLOモデル (デフォルト: yolov8n)')
     parser.add_argument('--device',
                        type=str,
@@ -123,6 +128,9 @@ def main():
                        type=float,
                        default=0.3,
                        help='ランドマーク検出の閾値 (デフォルト: 0.3)')
+    parser.add_argument('--use-mmdet',
+                       action='store_true',
+                       help='オリジナルのMMDetectionベースのモデルを使用 (要: mmdet/mmpose)')
     
     args = parser.parse_args()
     
@@ -131,7 +139,8 @@ def main():
         face_score_threshold=args.face_threshold,
         landmark_score_threshold=args.landmark_threshold,
         detector_name=args.detector,
-        device=args.device
+        device=args.device,
+        use_mmdet=args.use_mmdet
     )
     
     sys.exit(0 if success else 1)

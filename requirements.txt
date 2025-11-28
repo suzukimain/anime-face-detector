@@ -5,3 +5,10 @@ torch>=2.0.0
 torchvision>=0.15.0
 Pillow>=9.0.0
 scipy>=1.10.0
+
+# Optional: For using original mmdet anime face models
+# Uncomment to install (requires Visual Studio C++ Build Tools on Windows):
+# openmim>=0.3.0
+# mmcv>=2.0.0
+# mmdet>=3.0.0
+# mmpose>=1.0.0
