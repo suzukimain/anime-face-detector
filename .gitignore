@@ -2,3 +2,8 @@
 *.png
 *.jpg
 *.jpeg
+
+# Virtual environment
+venv/
+.venv/
+venv
