@@ -18,14 +18,14 @@ def _get_requirements(path):
 
 setup(
     name='anime-face-detector',
-    version='0.0.9',
+    version='0.1.0',
     author='hysts',
     url='https://github.com/hysts/anime-face-detector',
-    python_requires='>=3.7',
+    python_requires='>=3.8',
     install_requires=_get_requirements('requirements.txt'),
     packages=find_packages(exclude=('tests', )),
     include_package_data=True,
-    description='Anime Face Detector using mmdet and mmpose',
+    description='Anime Face Detector using Ultralytics YOLO (Windows compatible)',
     long_description=_get_long_description(),
     long_description_content_type='text/markdown',
 )

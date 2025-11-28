@@ -5,50 +5,70 @@ import torch
 from .detector import LandmarkDetector
 
 
-def get_config_path(model_name: str) -> pathlib.Path:
-    assert model_name in ['faster-rcnn', 'yolov3', 'hrnetv2']
-
-    package_path = pathlib.Path(__file__).parent.resolve()
-    if model_name in ['faster-rcnn', 'yolov3']:
-        config_dir = package_path / 'configs' / 'mmdet'
-    else:
-        config_dir = package_path / 'configs' / 'mmpose'
-    return config_dir / f'{model_name}.py'
-
-
-def get_checkpoint_path(model_name: str) -> pathlib.Path:
-    assert model_name in ['faster-rcnn', 'yolov3', 'hrnetv2']
-    if model_name in ['faster-rcnn', 'yolov3']:
-        file_name = f'mmdet_anime-face_{model_name}.pth'
-    else:
-        file_name = f'mmpose_anime-face_{model_name}.pth'
-
-    model_dir = pathlib.Path(torch.hub.get_dir()) / 'checkpoints'
-    model_dir.mkdir(exist_ok=True, parents=True)
-    model_path = model_dir / file_name
-    if not model_path.exists():
-        url = f'https://github.com/hysts/anime-face-detector/releases/download/v0.0.1/{file_name}'
-        torch.hub.download_url_to_file(url, model_path.as_posix())
-
-    return model_path
+def get_model_path(model_name: str) -> pathlib.Path:
+    """
+    Get or download YOLO model file.
+    
+    Args:
+        model_name: Name of the model ('yolov8n', 'yolov8s', 'yolov8m', etc.)
+        
+    Returns:
+        Path to the model file
+    """
+    # Use ultralytics default model location
+    # Models will be auto-downloaded by ultralytics on first use
+    model_file = f'{model_name}.pt'
+    return pathlib.Path(model_file)
 
 
-def create_detector(face_detector_name: str = 'yolov3',
-                    landmark_model_name='hrnetv2',
+def create_detector(face_detector_name: str = 'yolov8n',
                     device: str = 'cuda:0',
-                    flip_test: bool = True,
-                    box_scale_factor: float = 1.1) -> LandmarkDetector:
-    assert face_detector_name in ['yolov3', 'faster-rcnn']
-    assert landmark_model_name in ['hrnetv2']
-    detector_config_path = get_config_path(face_detector_name)
-    landmark_config_path = get_config_path(landmark_model_name)
-    detector_checkpoint_path = get_checkpoint_path(face_detector_name)
-    landmark_checkpoint_path = get_checkpoint_path(landmark_model_name)
-    model = LandmarkDetector(landmark_config_path,
-                             landmark_checkpoint_path,
-                             detector_config_path,
-                             detector_checkpoint_path,
-                             device=device,
-                             flip_test=flip_test,
-                             box_scale_factor=box_scale_factor)
-    return model
+                    box_scale_factor: float = 1.1,
+                    confidence_threshold: float = 0.25) -> LandmarkDetector:
+    """
+    Create an anime face landmark detector.
+    
+    Args:
+        face_detector_name: YOLO model name ('yolov8n', 'yolov8s', 'yolov8m', 'yolov8l', 'yolov8x')
+                          or custom model path. Smaller models are faster but less accurate.
+        device: Device to run on ('cuda:0', 'cuda:1', 'cpu', etc.)
+        box_scale_factor: Scale factor for bounding boxes (default: 1.1)
+        confidence_threshold: Minimum confidence for face detection (default: 0.25)
+        
+    Returns:
+        Initialized LandmarkDetector instance
+        
+    Note:
+        Models will be automatically downloaded on first use.
+        For Windows compatibility, 'cpu' device is recommended if CUDA is not available.
+    """
+    # Map old detector names to new YOLO models
+    detector_mapping = {
+        'yolov3': 'yolov8n',  # lightweight
+        'faster-rcnn': 'yolov8s',  # more accurate
+        'yolov8n': 'yolov8n',
+        'yolov8s': 'yolov8s',
+        'yolov8m': 'yolov8m',
+        'yolov8l': 'yolov8l',
+        'yolov8x': 'yolov8x',
+    }
+    
+    model_name = detector_mapping.get(face_detector_name, face_detector_name)
+    model_path = get_model_path(model_name)
+    
+    # Ensure device is valid
+    if not torch.cuda.is_available() and 'cuda' in device:
+        print(f"CUDA not available, falling back to CPU")
+        device = 'cpu'
+    
+    detector = LandmarkDetector(
+        face_detector_model=model_path.as_posix(),
+        device=device,
+        box_scale_factor=box_scale_factor,
+        confidence_threshold=confidence_threshold
+    )
+    
+    return detector
+
+
+__all__ = ['LandmarkDetector', 'create_detector']

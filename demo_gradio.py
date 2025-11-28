@@ -13,7 +13,20 @@ import anime_face_detector
 
 def detect(img, face_score_threshold: float, landmark_score_threshold: float,
            detector: anime_face_detector.LandmarkDetector) -> PIL.Image.Image:
-    image = cv2.imread(img.name)
+    # Handle different input types from Gradio
+    if isinstance(img, str):
+        image = cv2.imread(img)
+    elif isinstance(img, np.ndarray):
+        # Gradio may pass RGB array, convert to BGR for OpenCV
+        if img.ndim == 3 and img.shape[2] == 3:
+            image = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        else:
+            image = img
+    elif hasattr(img, 'name'):  # file-like object
+        image = cv2.imread(img.name)
+    else:
+        raise ValueError(f"Unsupported image type: {type(img)}")
+    
     preds = detector(image)
 
     res = image.copy()
@@ -46,19 +59,19 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--detector',
                         type=str,
-                        default='yolov3',
-                        choices=['yolov3', 'faster-rcnn'])
+                        default='yolov8n',
+                        choices=['yolov8n', 'yolov8s', 'yolov8m', 'yolov3', 'faster-rcnn'],
+                        help='YOLO model to use (yolov8n is fastest, yolov8m is more accurate)')
     parser.add_argument('--device',
                         type=str,
-                        default='cuda:0',
-                        choices=['cuda:0', 'cpu'])
+                        default='cuda:0' if torch.cuda.is_available() else 'cpu',
+                        help='Device to run on (cuda:0, cpu, etc.)')
     parser.add_argument('--face-score-threshold', type=float, default=0.5)
     parser.add_argument('--landmark-score-threshold', type=float, default=0.3)
     parser.add_argument('--score-slider-step', type=float, default=0.05)
-    parser.add_argument('--port', type=int)
+    parser.add_argument('--port', type=int, default=None)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--share', action='store_true')
-    parser.add_argument('--live', action='store_true')
     args = parser.parse_args()
 
     sample_path = pathlib.Path('input.jpg')
@@ -72,27 +85,27 @@ def main():
     func = functools.partial(detect, detector=detector)
     func = functools.update_wrapper(func, detect)
 
-    title = 'hysts/anime-face-detector'
-    description = 'Demo for hysts/anime-face-detector. To use it, simply upload your image, or click one of the examples to load them. Read more at the links below.'
+    title = 'hysts/anime-face-detector (Windows Compatible)'
+    description = '''Demo for anime-face-detector using Ultralytics YOLO. 
+    This version is Windows-compatible and doesn't require OpenMMLab.
+    Simply upload your image, or click one of the examples to load them.'''
     article = "<a href='https://github.com/hysts/anime-face-detector'>GitHub Repo</a>"
 
-    gr.Interface(
-        func,
-        [
-            gr.inputs.Image(type='file', label='Input'),
-            gr.inputs.Slider(0,
-                             1,
-                             step=args.score_slider_step,
-                             default=args.face_score_threshold,
-                             label='Face Score Threshold'),
-            gr.inputs.Slider(0,
-                             1,
-                             step=args.score_slider_step,
-                             default=args.landmark_score_threshold,
-                             label='Landmark Score Threshold'),
+    # Use modern Gradio API (v4+)
+    interface = gr.Interface(
+        fn=func,
+        inputs=[
+            gr.Image(type='numpy', label='Input'),
+            gr.Slider(0, 1,
+                     step=args.score_slider_step,
+                     value=args.face_score_threshold,
+                     label='Face Score Threshold'),
+            gr.Slider(0, 1,
+                     step=args.score_slider_step,
+                     value=args.landmark_score_threshold,
+                     label='Landmark Score Threshold'),
         ],
-        gr.outputs.Image(type='pil', label='Output'),
-        server_port=args.port,
+        outputs=gr.Image(type='pil', label='Output'),
         title=title,
         description=description,
         article=article,
@@ -103,9 +116,13 @@ def main():
                 args.landmark_score_threshold,
             ],
         ],
-        enable_queue=True,
-        live=args.live,
-    ).launch(debug=args.debug, share=args.share)
+    )
+    
+    interface.launch(
+        server_port=args.port,
+        debug=args.debug,
+        share=args.share
+    )
 
 
 if __name__ == '__main__':
